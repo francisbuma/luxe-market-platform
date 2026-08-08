@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - LuxeMarket</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #2563eb; --primary-dark: #1d4ed8; --secondary: #f59e0b;
+            --dark: #1f2937; --light: #f3f4f6; --white: #ffffff;
+            --gray: #6b7280; --success: #10b981; --danger: #ef4444;
+            --warning: #f59e0b; --sidebar: #111827; --sidebar-hover: #1f2937;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--light); color: var(--dark); min-height: 100vh;
+        }
+        .top-header {
+            background: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .top-header .logo { font-size: 1.5rem; font-weight: 800; color: var(--primary); text-decoration: none; }
+        .top-header-right { display: flex; align-items: center; gap: 1rem; }
+        .user-info { display: flex; align-items: center; gap: 0.75rem; }
+        .user-avatar {
+            width: 36px; height: 36px; border-radius: 50%; background: var(--primary);
+            color: white; display: flex; align-items: center; justify-content: center; font-weight: 600;
+        }
+        .logout-btn { background: var(--danger); color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; font-weight: 500; }
+        .logout-btn:hover { background: #dc2626; }
+        .lang-chip { padding: 0.375rem 0.75rem; border-radius: 2rem; font-size: 0.75rem; cursor: pointer; border: 1px solid var(--light); background: white; transition: all 0.2s; }
+        .lang-chip:hover { background: var(--light); }
+        .lang-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .server-status { padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; margin-bottom: 1rem; }
+        .server-status.online { background: #ecfdf5; color: var(--success); }
+        .server-status.offline { background: #fef2f2; color: var(--danger); }
+        .dashboard-layout { display: flex; min-height: calc(100vh - 64px); }
+        .sidebar { width: 260px; background: var(--sidebar); color: white; padding: 1.5rem 0; position: fixed; height: 100%; overflow-y: auto; }
+        .sidebar-nav { list-style: none; }
+        .sidebar-nav li { padding: 0.75rem 1.5rem; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 0.75rem; font-weight: 500; }
+        .sidebar-nav li:hover, .sidebar-nav li.active { background: var(--sidebar-hover); border-left: 3px solid var(--primary); }
+        .sidebar-nav li.active { color: var(--primary); }
+        .main-content { flex: 1; margin-left: 260px; padding: 2rem; max-width: calc(100% - 260px); }
+        .page-title { font-size: 1.75rem; margin-bottom: 1.5rem; color: var(--dark); }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background: var(--white); border-radius: 1rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .stat-card .stat-icon { width: 48px; height: 48px; border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-bottom: 1rem; }
+        .stat-card .stat-value { font-size: 1.75rem; font-weight: 800; color: var(--dark); }
+        .stat-card .stat-label { color: var(--gray); font-size: 0.875rem; margin-top: 0.25rem; }
+        .stat-card.blue .stat-icon { background: #eff6ff; }
+        .stat-card.green .stat-icon { background: #ecfdf5; }
+        .stat-card.orange .stat-icon { background: #fffbeb; }
+        .stat-card.purple .stat-icon { background: #f5f3ff; }
+        .card { background: var(--white); border-radius: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 1.5rem; margin-bottom: 1.5rem; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+        .card-title { font-size: 1.125rem; font-weight: 700; }
+        .card-action { background: var(--primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; font-weight: 500; font-size: 0.875rem; }
+        .card-action:hover { background: var(--primary-dark); }
+        .card-action.secondary { background: var(--light); color: var(--dark); }
+        .card-action.secondary:hover { background: #e5e7eb; }
+        .card-action.danger { background: #fef2f2; color: var(--danger); }
+        .card-action.danger:hover { background: #fee2e2; }
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray); border-bottom: 1px solid var(--light); }
+        .data-table td { padding: 1rem; border-bottom: 1px solid var(--light); font-size: 0.875rem; }
+        .data-table tr:hover { background: #f9fafb; }
+        .status-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 2rem; font-size: 0.75rem; font-weight: 600; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-processing { background: #dbeafe; color: #1e40af; }
+        .status-shipped { background: #e0e7ff; color: #3730a3; }
+        .status-delivered { background: #d1fae5; color: #065f46; }
+        .status-cancelled { background: #fee2e2; color: #991b1b; }
+        .address-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+        .address-item { border: 2px solid var(--light); border-radius: 0.75rem; padding: 1.25rem; position: relative; }
+        .address-item.default { border-color: var(--primary); background: #eff6ff; }
+        .address-item .addr-label { font-weight: 700; color: var(--primary); margin-bottom: 0.5rem; }
+        .address-item .addr-text { color: var(--gray); line-height: 1.6; font-size: 0.875rem; }
+        .address-actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.375rem; font-weight: 500; font-size: 0.875rem; }
+        .form-group input, .form-group select { width: 100%; padding: 0.625rem 0.875rem; border: 2px solid var(--light); border-radius: 0.5rem; font-size: 0.875rem; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .btn { padding: 0.625rem 1.25rem; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; font-size: 0.875rem; transition: all 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-outline { background: transparent; border: 1px solid var(--gray); color: var(--dark); }
+        .btn-outline:hover { background: var(--light); }
+        .empty-state { text-align: center; padding: 3rem; color: var(--gray); }
+        .empty-state-icon { font-size: 3rem; margin-bottom: 1rem; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; padding: 1rem; }
+        .modal-overlay.active { display: flex; }
+        .modal-box { background: white; border-radius: 1rem; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 1.5rem; }
+        .modal-box h3 { margin-bottom: 1rem; }
+        .toast { position: fixed; bottom: 2rem; right: 2rem; background: var(--dark); color: white; padding: 1rem 2rem; border-radius: 0.5rem; box-shadow: 0 10px 20px rgba(0,0,0,0.2); z-index: 4000; transform: translateY(100px); opacity: 0; transition: all 0.3s; }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .loading { text-align: center; padding: 3rem; color: var(--gray); }
+        .spinner { border: 3px solid var(--light); border-top: 3px solid var(--primary); border-radius: 50%; width: 32px; height: 32px; animation: spin 1s linear infinite; margin: 0 auto 0.75rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+/* Mobile sidebar */
+        .sidebar-toggle { display: none; background: none; border: none; font-size: 1.5rem; cursor: pointer; margin-right: 0.5rem; }
+        .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99; }
+        .sidebar-overlay.active { display: block; }
+
+        /* Shimmer skeleton */
+        .skeleton { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 0.5rem; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .skeleton-stats { height: 110px; }
+        .skeleton-line { height: 16px; margin: 6px 0; }
+        .skeleton-line.short { width: 40%; }
+        .skeleton-line.medium { width: 70%; }
+        .skeleton-avatar { width: 80px; height: 80px; border-radius: 50%; }
+
+        /* Empty state */
+        .empty-state { text-align: center; padding: 3rem; color: var(--gray); }
+        .empty-state-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+
+        @media (max-width: 768px) {
+            .sidebar-toggle { display: block; }
+            .sidebar { transform: translateX(-100%); transition: transform 0.3s; z-index: 100; width: 260px; }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; max-width: 100%; padding: 1rem; }
+            .stats-grid { grid-template-columns: 1fr 1fr; gap: 1rem; }
+            .form-row { grid-template-columns: 1fr; }
+        }
+        @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; background: #e5e7eb; } }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <header class="top-header">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+            <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+            <a href="/" class="logo">LuxeMarket</a>
+        </div>
+        <div class="top-header-right">
+            <div id="langBar" style="display:flex;gap:0.5rem;"></div>
+            <div class="user-info">
+                <div class="user-avatar" id="headerAvatar" style="overflow:hidden; background-size:cover; background-position:center;">U</div>
+                <span id="headerName">User</span>
+            </div>
+            <button class="logout-btn" onclick="logout()" data-i18n="nav_logout">Logout</button>
+        </div>
+    </header>
+
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <div class="dashboard-layout">
+        <aside class="sidebar" id="sidebar">
+            <ul class="sidebar-nav">
+                <li class="active" onclick="showSection('overview')" id="nav-overview"><span>📊</span> <span data-i18n="dash_overview">Overview</span></li>
+                <li onclick="showSection('orders')" id="nav-orders"><span>📦</span> <span data-i18n="dash_orders">My Orders</span></li>
+                <li onclick="showSection('addresses')" id="nav-addresses"><span>📍</span> <span data-i18n="dash_addresses">Addresses</span></li>
+                <li onclick="showSection('profile')" id="nav-profile"><span>👤</span> <span data-i18n="dash_profile">Edit Profile</span></li>
+                <li onclick="window.location.href='/'"><span>🛒</span> <span data-i18n="dash_shop">Go to Shop</span></li>
+            </ul>
+        </aside>
+
+        <main class="main-content">
+            <div id="serverStatus" class="server-status" style="display:none;"></div>
+
+            <section id="section-overview">
+                <h1 class="page-title" data-i18n="dash_overview">Dashboard</h1>
+                <div class="stats-grid" id="statsGrid">
+                    <div class="loading" style="grid-column: 1/-1;"><div class="spinner"></div><p data-i18n="loading">Loading...</p></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title" data-i18n="dash_profile_title">Profile Overview</h3>
+                        <button class="card-action secondary" onclick="showSection('profile')" data-i18n="dash_profile_edit">Edit</button>
+                    </div>
+                    <div id="profileOverview"><div class="loading"><div class="spinner"></div></div></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title" data-i18n="dash_recent_orders">Recent Orders</h3>
+                        <button class="card-action secondary" onclick="showSection('orders')" data-i18n="dash_view_all">View All</button>
+                    </div>
+                    <div id="recentOrders"><div class="loading"><div class="spinner"></div></div></div>
+                </div>
+            </section>
+
+            <section id="section-orders" class="hidden">
+                <h1 class="page-title" data-i18n="dash_orders">My Orders</h1>
+                <div class="card"><div id="ordersList"><div class="loading"><div class="spinner"></div><p data-i18n="loading">Loading...</p></div></div></div>
+            </section>
+
+            <section id="section-addresses" class="hidden">
+                <h1 class="page-title" data-i18n="dash_addresses">My Addresses</h1>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title" data-i18n="dash_addresses_title">Saved Addresses</h3>
+                        <button class="card-action" onclick="openAddressModal()" data-i18n="dash_add_address">+ New Address</button>
+                    </div>
+                    <div id="addressesList"><div class="loading"><div class="spinner"></div></div></div>
+                </div>
+            </section>
+
+            <section id="section-profile" class="hidden">
+                <h1 class="page-title" data-i18n="dash_profile">Edit Profile</h1>
+                <div class="card" style="max-width: 600px;">
+                    <form id="profileForm" onsubmit="updateProfile(event)">
+                        <div style="text-align: center; margin-bottom: 1.5rem;">
+                            <div class="avatar-preview" id="editAvatarPreview" style="width:100px;height:100px;border-radius:50%;background:var(--light);display:inline-flex;align-items:center;justify-content:center;font-size:2.5rem;font-weight:700;color:var(--primary);cursor:pointer;overflow:hidden;background-size:cover;background-position:center;border:3px dashed var(--light);" onclick="document.getElementById('editAvatarInput').click()">👤</div>
+                            <input type="file" id="editAvatarInput" accept="image/*" style="display:none;" onchange="handleEditAvatarChange(event)">
+                            <div style="font-size:0.75rem;color:var(--gray);margin-top:0.5rem;">Click avatar to change photo (max 500KB)</div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label data-i18n="register_firstname">First Name *</label><input type="text" id="editFirstName" required></div>
+                            <div class="form-group"><label data-i18n="register_lastname">Last Name *</label><input type="text" id="editLastName" required></div>
+                        </div>
+                        <div class="form-group"><label data-i18n="login_email">Email</label><input type="email" id="editEmail" disabled style="background:var(--light);color:var(--gray);"></div>
+                        <div class="form-group"><label data-i18n="register_phone">Phone</label><input type="tel" id="editPhone"></div>
+                        <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                            <button type="button" class="btn btn-outline" onclick="showSection('overview')" data-i18n="cancel">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="saveProfileBtn" data-i18n="dash_profile_save">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Address Modal -->
+    <div class="modal-overlay" id="addressModal">
+        <div class="modal-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <h3 id="addressModalTitle" data-i18n="new_address">New Address</h3>
+                <button onclick="closeAddressModal()" style="background:none;border:none;font-size:1.25rem;cursor:pointer;">✕</button>
+            </div>
+            <form id="addressForm" onsubmit="saveAddress(event)">
+                <input type="hidden" id="editAddressId">
+                <div class="form-group"><label data-i18n="address_label">Label</label><input type="text" id="modalLabel" placeholder="Home, Work..."></div>
+                <div class="form-group"><label data-i18n="address_street">Street & Number *</label><input type="text" id="modalStreet" required></div>
+                <div class="form-row">
+                    <div class="form-group"><label data-i18n="address_zip">ZIP Code *</label><input type="text" id="modalZip" required></div>
+                    <div class="form-group"><label data-i18n="address_city">City *</label><input type="text" id="modalCity" required></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label data-i18n="address_state">State</label><input type="text" id="modalState"></div>
+                    <div class="form-group"><label data-i18n="address_country">Country</label>
+                        <select id="modalCountry">
+                            <option value="DE">🇩🇪 Germany</option>
+                            <option value="AT">🇦🇹 Austria</option>
+                            <option value="CH">🇨🇭 Switzerland</option>
+                            <option value="US">🇺🇸 United States</option>
+                            <option value="GB">🇬🇧 United Kingdom</option>
+                            <option value="FR">🇫🇷 France</option>
+                            <option value="ES">🇪🇸 Spain</option>
+                            <option value="IT">🇮🇹 Italy</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group"><label><input type="checkbox" id="modalDefault"> <span data-i18n="dash_address_default">Set as default</span></label></div>
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <button type="button" class="btn btn-outline" onclick="closeAddressModal()" style="flex:1;" data-i18n="cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="flex:1;" id="saveAddressBtn" data-i18n="save_address">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Order Detail Modal -->
+    <div class="modal-overlay" id="orderModal">
+        <div class="modal-box" style="max-width: 600px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <h3 data-i18n="dash_order_details">Order Details</h3>
+                <button onclick="closeOrderModal()" style="background:none;border:none;font-size:1.25rem;cursor:pointer;">✕</button>
+            </div>
+            <div id="orderDetailContent"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="/assets/safe-dom.js"></script>
+    <script>
+        const APP_BASE = window.location.protocol === 'file:' ? 'http://localhost:8080' : window.location.origin;
+        const FALLBACK_I18N = {
+            currentLang: 'en',
+            translations: {
+                en: {
+                    nav_logout: 'Logout',
+                    dash_overview: 'Overview',
+                    dash_orders: 'My Orders',
+                    dash_addresses: 'Addresses',
+                    dash_profile: 'Edit Profile',
+                    dash_shop: 'Go to Shop',
+                    loading: 'Loading...',
+                    dash_stats_orders: 'Orders',
+                    dash_stats_spent: 'Total Spent',
+                    dash_stats_addresses: 'Addresses',
+                    dash_stats_cart: 'Cart Items',
+                    dash_profile_title: 'Profile Overview',
+                    dash_profile_edit: 'Edit',
+                    dash_recent_orders: 'Recent Orders',
+                    dash_view_all: 'View All',
+                    dash_addresses_title: 'Saved Addresses',
+                    dash_add_address: '+ New Address',
+                    new_address: 'New Address',
+                    dash_address_default: 'Default',
+                    dash_address_edit: 'Edit',
+                    dash_address_delete: 'Delete',
+                    dash_no_addresses: 'No addresses saved',
+                    dash_no_orders: 'No orders yet',
+                    dash_order_number: 'Order #',
+                    dash_order_date: 'Date',
+                    dash_order_amount: 'Amount',
+                    dash_order_status: 'Status',
+                    dash_order_details: 'Details',
+                    dash_order_cancel: 'Cancel',
+                    dash_profile_save: 'Save',
+                    cancel: 'Cancel',
+                    save_address: 'Save',
+                    address_label: 'Label',
+                    address_street: 'Street & Number',
+                    address_zip: 'ZIP Code',
+                    address_city: 'City',
+                    address_state: 'State',
+                    address_country: 'Country',
+                    register_firstname: 'First Name',
+                    register_lastname: 'Last Name',
+                    login_email: 'Email',
+                    register_phone: 'Phone',
+                    dash_name: 'Name',
+                    dash_email: 'Email',
+                    dash_phone: 'Phone',
+                    dash_member_since: 'Member Since',
+                    status_pending: 'Pending',
+                    status_processing: 'Processing',
+                    status_shipped: 'Shipped',
+                    status_delivered: 'Delivered',
+                    status_cancelled: 'Cancelled',
+                    hero_cta: 'Shop Now',
+                    toast_profile_updated: 'Profile updated',
+                    toast_error: 'An error occurred',
+                    toast_address_saved: 'Address saved',
+                    toast_address_deleted: 'Address deleted',
+                    toast_order_cancelled: 'Order cancelled'
+                }
+            },
+            t(key) {
+                return this.translations[this.currentLang]?.[key] || this.translations.en[key] || key;
+            },
+            setLang(lang) {
+                if (this.translations[lang]) { this.currentLang = lang; return true; }
+                return false;
+            },
+            getCurrentLang() { return { code: this.currentLang, name: 'English', flag: '🇬🇧' }; },
+            getLanguages() { return [{ code: 'en', name: 'English', flag: '🇬🇧' }]; }
+        };
+        window.I18N = window.I18N || FALLBACK_I18N;
+        const API_BASE = `${APP_BASE}/api`;
+        let currentUser = null;
+        let allOrders = [];
+        let allAddresses = [];
+        let serverOnline = true;
+
+        function getAuthHeaders(extraHeaders = {}) {
+            const token = localStorage.getItem('token');
+            const headers = { ...extraHeaders };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            return headers;
+        }
+
+        function showSection(sectionId) {
+            document.querySelectorAll('.main-content > section').forEach(sec => sec.classList.add('hidden'));
+            const target = document.getElementById('section-' + sectionId);
+            if (target) target.classList.remove('hidden');
+            document.querySelectorAll('.sidebar-nav li').forEach(li => li.classList.remove('active'));
+            const navItem = document.getElementById('nav-' + sectionId);
+            if (navItem) navItem.classList.add('active');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (sidebar) sidebar.classList.remove('open');
+            if (overlay) overlay.classList.remove('active');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initLangBar();
+            applyTranslations();
+            checkServerAndLoad();
+        });
+
+        async function checkServerAndLoad() {
+            const statusEl = document.getElementById('serverStatus');
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 5000);
+                const res = await fetch(`${API_BASE}/health`, { signal: controller.signal });
+                clearTimeout(timeout);
+
+                if (res.ok) {
+                    serverOnline = true;
+                    statusEl.style.display = 'none';
+                    await verifyToken();
+                    loadDashboard();
+                } else {
+                    throw new Error('Server error');
+                }
+            } catch (e) {
+                if (e.name === 'AuthError') return;
+                serverOnline = false;
+                statusEl.className = 'server-status offline';
+                statusEl.textContent = '⚠️ Server offline - some features may not work';
+                statusEl.style.display = 'block';
+                showToast('Server offline. Please start: npm start', 'error');
+            }
+        }
+
+        async function verifyToken() {
+            try {
+                const res = await fetch(`${API_BASE}/session/me`, { credentials: 'include', headers: getAuthHeaders() });
+                if (!res.ok) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    redirectToLogin('Your session has expired or is invalid. Please log in again.');
+                    const err = new Error('Invalid token');
+                    err.name = 'AuthError';
+                    throw err;
+                }
+            } catch (err) {
+                if (err.name === 'AuthError') throw err;
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                redirectToLogin('Unable to verify session. Please sign in again.');
+                const authErr = new Error('Auth verification failed');
+                authErr.name = 'AuthError';
+                throw authErr;
+            }
+        }
+
+        function redirectToLogin(message) {
+            showToast(message, 'error');
+            setTimeout(() => {
+                window.location.href = `${APP_BASE}/pages/login.html?redirect=dashboard`;
+            }, 1300);
+        }
+
+        function initLangBar() {
+            const bar = document.getElementById('langBar');
+            const current = I18N.getCurrentLang();
+            bar.innerHTML = I18N.getLanguages().map(lang => 
+                `<button class="lang-chip ${lang.code === current.code ? 'active' : ''}" onclick="changeLang('${SafeDOM.escapeAttribute(lang.code)}')">${SafeDOM.escapeHtml(lang.flag)} ${SafeDOM.escapeHtml(lang.name)}</button>`
+            ).join('');
+        }
+
+        function changeLang(lang) {
+            I18N.setLang(lang);
+            initLangBar();
+            applyTranslations();
+            showToast(`Language: ${I18N.languages[lang].name}`, 'success');
+        }
+
+        function applyTranslations() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                const text = I18N.t(key);
+                if (el.tagName === 'INPUT') el.placeholder = text;
+                else {
+                    if (el.children.length === 0) el.textContent = text;
+                    else {
+                        Array.from(el.childNodes).forEach(node => {
+                            if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+                                node.textContent = ' ' + text + ' ';
+                            }
+                        });
+                    }
+                }
+            });
+            document.documentElement.lang = I18N.currentLang;
+        }
+
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('active'); }
+
+        async function loadDashboard() {
+            // Show skeletons while loading
+            document.getElementById('statsGrid').innerHTML = `
+                <div class="stat-card skeleton-stats"></div>
+                <div class="stat-card skeleton-stats"></div>
+                <div class="stat-card skeleton-stats"></div>
+                <div class="stat-card skeleton-stats"></div>`;
+            document.getElementById('profileOverview').innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+            document.getElementById('recentOrders').innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+            document.getElementById('ordersList').innerHTML = `<div class="loading"><div class="spinner"></div><p data-i18n="loading">Loading...</p></div>`;
+            document.getElementById('addressesList').innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 10000);
+
+                const profileRes = await fetch(`${API_BASE}/customer/profile`, { credentials: 'include', headers: getAuthHeaders(), signal: controller.signal });
+                if (!profileRes.ok) {
+                    if (profileRes.status === 401) { localStorage.removeItem('token'); window.location.href = '/pages/login.html'; return; }
+                    throw new Error('Profile load failed');
+                }
+                currentUser = await profileRes.json();
+                const firstName = currentUser.firstName || 'User';
+                const lastName = currentUser.lastName || '';
+                document.getElementById('headerName').textContent = `${firstName} ${lastName}`.trim();
+                const headerAvatar = document.getElementById('headerAvatar');
+                if (currentUser.avatar) {
+                    headerAvatar.style.backgroundImage = `url(${currentUser.avatar})`;
+                    headerAvatar.textContent = '';
+                } else {
+                    headerAvatar.style.backgroundImage = '';
+                    headerAvatar.textContent = (firstName[0] || 'U').toUpperCase();
+                }
+
+                const statsRes = await fetch(`${API_BASE}/customer/dashboard`, { credentials: 'include', headers: getAuthHeaders(), signal: controller.signal });
+                renderStats(await statsRes.json());
+                renderProfileOverview();
+
+                const ordersRes = await fetch(`${API_BASE}/customer/orders`, { credentials: 'include', headers: getAuthHeaders(), signal: controller.signal });
+                allOrders = await ordersRes.json();
+                renderRecentOrders();
+                renderAllOrders();
+
+                const addrRes = await fetch(`${API_BASE}/customer/addresses`, { credentials: 'include', headers: getAuthHeaders(), signal: controller.signal });
+                allAddresses = await addrRes.json();
+                renderAddresses();
+
+                document.getElementById('editFirstName').value = currentUser.firstName || '';
+                document.getElementById('editLastName').value = currentUser.lastName || '';
+                document.getElementById('editEmail').value = currentUser.email || '';
+                document.getElementById('editPhone').value = currentUser.phone || '';
+
+                const editAvatarPreview = document.getElementById('editAvatarPreview');
+                if (currentUser.avatar) {
+                    editAvatarPreview.style.backgroundImage = `url(${currentUser.avatar})`;
+                    editAvatarPreview.textContent = '';
+                } else {
+                    editAvatarPreview.style.backgroundImage = '';
+                    editAvatarPreview.textContent = '👤';
+                }
+
+                clearTimeout(timeout);
+            } catch (e) {
+                console.error('Dashboard load error:', e);
+                if (e.name === 'AbortError') showToast('Request timed out', 'error');
+                else showToast('Failed to load dashboard data', 'error');
+            }
+        }
+
+        function renderStats(stats) {
+            document.getElementById('statsGrid').innerHTML = `
+                <div class="stat-card blue"><div class="stat-icon">📦</div><div class="stat-value">${SafeDOM.escapeHtml(stats.totalOrders ?? 0)}</div><div class="stat-label">${SafeDOM.escapeHtml(I18N.t('dash_stats_orders'))}</div></div>
+                <div class="stat-card green"><div class="stat-icon">💰</div><div class="stat-value">€${Number(stats.totalSpent || 0).toFixed(2)}</div><div class="stat-label">${SafeDOM.escapeHtml(I18N.t('dash_stats_spent'))}</div></div>
+                <div class="stat-card orange"><div class="stat-icon">📍</div><div class="stat-value">${SafeDOM.escapeHtml(stats.addressCount ?? 0)}</div><div class="stat-label">${SafeDOM.escapeHtml(I18N.t('dash_stats_addresses'))}</div></div>
+                <div class="stat-card purple"><div class="stat-icon">🛒</div><div class="stat-value">${SafeDOM.escapeHtml(stats.cartItems ?? 0)}</div><div class="stat-label">${SafeDOM.escapeHtml(I18N.t('dash_stats_cart'))}</div></div>`;
+        }
+
+        function renderProfileOverview() {
+            const firstName = currentUser.firstName || '';
+            const lastName = currentUser.lastName || '';
+            const fullName = `${firstName} ${lastName}`.trim() || 'User';
+            const initial = (firstName[0] || 'U').toUpperCase();
+            const dateStr = currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString(I18N.currentLang) : '—';
+
+            document.getElementById('profileOverview').innerHTML = `
+                <div style="display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1.5rem;">
+                    <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--light); display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 700; color: var(--primary); overflow: hidden; background-size: cover; background-position: center; ${currentUser.avatar ? `background-image: url(${SafeDOM.escapeAttribute(currentUser.avatar)});` : ''}">
+                        ${currentUser.avatar ? '' : SafeDOM.escapeHtml(initial)}
+                    </div>
+                    <div>
+                        <h2 style="font-size: 1.25rem; font-weight: 700;">${SafeDOM.escapeHtml(fullName)}</h2>
+                        <p style="color: var(--gray); font-size: 0.875rem;">${SafeDOM.escapeHtml(currentUser.email || '')}</p>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div><p style="color:var(--gray);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">${SafeDOM.escapeHtml(I18N.t('dash_name'))}</p><p style="font-weight:600;margin-top:0.25rem;">${SafeDOM.escapeHtml(fullName)}</p></div>
+                    <div><p style="color:var(--gray);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">${SafeDOM.escapeHtml(I18N.t('dash_email'))}</p><p style="font-weight:600;margin-top:0.25rem;">${SafeDOM.escapeHtml(currentUser.email || '')}</p></div>
+                    <div><p style="color:var(--gray);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">${SafeDOM.escapeHtml(I18N.t('dash_phone'))}</p><p style="font-weight:600;margin-top:0.25rem;">${SafeDOM.escapeHtml(currentUser.phone || '—')}</p></div>
+                    <div><p style="color:var(--gray);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">${SafeDOM.escapeHtml(I18N.t('dash_member_since'))}</p><p style="font-weight:600;margin-top:0.25rem;">${SafeDOM.escapeHtml(dateStr)}</p></div>
+                </div>`;
+        }
+
+        function renderAddresses() {
+            const container = document.getElementById('addressesList');
+            if (allAddresses.length === 0) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📍</div><h3>${SafeDOM.escapeHtml(I18N.t('dash_no_addresses'))}</h3><p style="margin-top:0.5rem;">Add a delivery address to speed up checkout.</p><button class="btn btn-primary" onclick="openAddressModal()" style="margin-top:1rem;">${SafeDOM.escapeHtml(I18N.t('dash_add_address'))}</button></div>`;
+                return;
+            }
+            container.innerHTML = `<div class="address-grid">${allAddresses.map(addr => {
+                const defaultBadge = addr.isDefault ? `<span style="font-size:0.75rem;background:var(--primary);color:white;padding:0.125rem 0.5rem;border-radius:1rem;margin-left:0.5rem;">${SafeDOM.escapeHtml(I18N.t('dash_address_default'))}</span>` : '';
+                const addressText = [addr.street, `${addr.zipCode} ${addr.city}`, addr.state ? addr.state : '', addr.country].filter(Boolean).map(value => SafeDOM.escapeHtml(value)).join('<br>');
+                const safeAddrId = Number(addr.id);
+                return `<div class="address-item ${addr.isDefault ? 'default' : ''}"><div class="addr-label">${SafeDOM.escapeHtml(addr.label)}${defaultBadge}</div><div class="addr-text">${addressText}</div><div class="address-actions"><button class="btn btn-outline" onclick="editAddress(${safeAddrId})">${SafeDOM.escapeHtml(I18N.t('dash_address_edit'))}</button><button class="btn btn-outline danger" onclick="deleteAddress(${safeAddrId})">${SafeDOM.escapeHtml(I18N.t('dash_address_delete'))}</button></div></div>`;
+            }).join('')}</div>`;
+        }
+
+        function renderAllOrders() {
+            const container = document.getElementById('ordersList');
+            if (allOrders.length === 0) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📦</div><h3>${SafeDOM.escapeHtml(I18N.t('dash_no_orders'))}</h3><p style="margin-top:0.5rem;">Start shopping to see your orders here.</p><a href="/" class="btn btn-primary" style="display:inline-block;margin-top:1rem;text-decoration:none;">${SafeDOM.escapeHtml(I18N.t('hero_cta'))}</a></div>`;
+                return;
+            }
+            container.innerHTML = `<table class="data-table"><thead><tr><th>${SafeDOM.escapeHtml(I18N.t('dash_order_number'))}</th><th>${SafeDOM.escapeHtml(I18N.t('dash_order_date'))}</th><th>Items</th><th>${SafeDOM.escapeHtml(I18N.t('dash_order_amount'))}</th><th>${SafeDOM.escapeHtml(I18N.t('dash_order_status'))}</th><th>${SafeDOM.escapeHtml(I18N.t('dash_order_details'))}</th></tr></thead><tbody>
+                ${allOrders.map(order => {
+                    const safeOrderId = Number(order.id);
+                    return `<tr><td style="font-weight:600;color:var(--primary);">${SafeDOM.escapeHtml(order.orderNumber || '')}</td><td>${SafeDOM.escapeHtml(order.createdAt ? new Date(order.createdAt).toLocaleDateString(I18N.currentLang) : '—')}</td><td>${SafeDOM.escapeHtml(order.items ? order.items.length : 0)} items</td><td style="font-weight:700;">€${Number(order.totalAmount || 0).toFixed(2)}</td><td><span class="status-badge status-${SafeDOM.escapeAttribute(order.status || '')}">${SafeDOM.escapeHtml(I18N.t('status_' + order.status))}</span></td><td><button class="btn btn-outline" onclick="showOrderDetail(${safeOrderId})">${SafeDOM.escapeHtml(I18N.t('dash_order_details'))}</button>${order.status === 'pending' ? ` <button class="btn btn-outline danger" onclick="cancelOrder(${safeOrderId})">${SafeDOM.escapeHtml(I18N.t('dash_order_cancel'))}</button>` : ''}</td></tr>`;
+                }).join('')}
+            </tbody></table>`;
+        }
+
+        function renderRecentOrders() {
+            const container = document.getElementById('recentOrders');
+            const recent = allOrders.slice(0, 3);
+            if (recent.length === 0) { container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📦</div><h3>${SafeDOM.escapeHtml(I18N.t('dash_no_orders'))}</h3><p style="margin-top:0.5rem;">Your recent orders will appear here.</p></div>`; return; }
+            container.innerHTML = `<table class="data-table"><thead><tr><th>${SafeDOM.escapeHtml(I18N.t('dash_order_number'))}</th><th>${SafeDOM.escapeHtml(I18N.t('dash_order_date'))}</th><th>${SafeDOM.escapeHtml(I18N.t('dash_order_amount'))}</th><th>${SafeDOM.escapeHtml(I18N.t('dash_order_status'))}</th></tr></thead><tbody>
+                ${recent.map(order => {
+                    const safeOrderId = Number(order.id);
+                    return `<tr style="cursor:pointer;" onclick="showOrderDetail(${safeOrderId})"><td style="font-weight:600;color:var(--primary);">${SafeDOM.escapeHtml(order.orderNumber || '')}</td><td>${SafeDOM.escapeHtml(order.createdAt ? new Date(order.createdAt).toLocaleDateString(I18N.currentLang) : '—')}</td><td style="font-weight:700;">€${Number(order.totalAmount || 0).toFixed(2)}</td><td><span class="status-badge status-${SafeDOM.escapeAttribute(order.status || '')}">${SafeDOM.escapeHtml(I18N.t('status_' + order.status))}</span></td></tr>`;
+                }).join('')}
+            </tbody></table>`;
+        }
+
+        let editAvatarData = null;
+
+        function handleEditAvatarChange(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.type.startsWith('image/')) { showToast('Please select an image file', 'error'); return; }
+            if (file.size > 500 * 1024) { showToast('Image too large. Max 500KB allowed.', 'error'); return; }
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                editAvatarData = ev.target.result;
+                const preview = document.getElementById('editAvatarPreview');
+                preview.style.backgroundImage = `url(${editAvatarData})`;
+                preview.textContent = '';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function updateProfile(e) {
+            e.preventDefault();
+            if (!serverOnline) { showToast('Server offline', 'error'); return; }
+            const btn = document.getElementById('saveProfileBtn');
+            btn.disabled = true; btn.textContent = I18N.t('loading');
+            const data = { firstName: document.getElementById('editFirstName').value, lastName: document.getElementById('editLastName').value, phone: document.getElementById('editPhone').value, avatar: editAvatarData || currentUser.avatar };
+            try {
+                const res = await fetch(`${API_BASE}/customer/profile`, { method: 'PUT', headers: getAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include', body: JSON.stringify(data) });
+                if (res.ok) {
+                    showToast(I18N.t('toast_profile_updated'), 'success');
+                    currentUser = { ...currentUser, ...data };
+                    renderProfileOverview();
+                    const firstName = data.firstName || 'User';
+                    const lastName = data.lastName || '';
+                    document.getElementById('headerName').textContent = `${firstName} ${lastName}`.trim();
+                    const headerAvatar = document.getElementById('headerAvatar');
+                    if (currentUser.avatar) {
+                        headerAvatar.style.backgroundImage = `url(${currentUser.avatar})`;
+                        headerAvatar.textContent = '';
+                    } else {
+                        headerAvatar.style.backgroundImage = '';
+                        headerAvatar.textContent = (firstName[0] || 'U').toUpperCase();
+                    }
+                    editAvatarData = null;
+                    setTimeout(() => showSection('overview'), 1000);
+                } else { showToast(I18N.t('toast_error'), 'error'); }
+            } catch (e) { showToast(I18N.t('toast_error'), 'error'); }
+            btn.disabled = false; btn.textContent = I18N.t('dash_profile_save');
+        }
+
+        function openAddressModal(addressId) {
+            document.getElementById('addressModal').classList.add('active');
+            document.getElementById('addressForm').reset();
+            document.getElementById('editAddressId').value = '';
+            document.getElementById('addressModalTitle').textContent = I18N.t('new_address');
+            if (addressId) {
+                const addr = allAddresses.find(a => a.id === addressId);
+                if (addr) {
+                    document.getElementById('editAddressId').value = addr.id;
+                    document.getElementById('modalLabel').value = addr.label;
+                    document.getElementById('modalStreet').value = addr.street;
+                    document.getElementById('modalZip').value = addr.zipCode;
+                    document.getElementById('modalCity').value = addr.city;
+                    document.getElementById('modalState').value = addr.state || '';
+                    document.getElementById('modalCountry').value = addr.country;
+                    document.getElementById('modalDefault').checked = addr.isDefault;
+                    document.getElementById('addressModalTitle').textContent = I18N.t('dash_address_edit');
+                }
+            }
+        }
+        function closeAddressModal() { document.getElementById('addressModal').classList.remove('active'); }
+
+        async function saveAddress(e) {
+            e.preventDefault();
+            if (!serverOnline) { showToast('Server offline', 'error'); return; }
+            const btn = document.getElementById('saveAddressBtn');
+            btn.disabled = true; btn.textContent = I18N.t('loading');
+            const addressId = document.getElementById('editAddressId').value;
+            const data = { label: document.getElementById('modalLabel').value || 'Home', street: document.getElementById('modalStreet').value, city: document.getElementById('modalCity').value, state: document.getElementById('modalState').value, zipCode: document.getElementById('modalZip').value, country: document.getElementById('modalCountry').value, isDefault: document.getElementById('modalDefault').checked };
+            try {
+                const url = addressId ? `${API_BASE}/customer/addresses/${addressId}` : `${API_BASE}/customer/addresses`;
+                const method = addressId ? 'PUT' : 'POST';
+                const res = await fetch(url, { method, headers: getAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include', body: JSON.stringify(data) });
+                if (res.ok) {
+                    showToast(I18N.t('toast_address_saved'), 'success');
+                    closeAddressModal();
+                    const addrRes = await fetch(`${API_BASE}/customer/addresses`, { credentials: 'include', headers: getAuthHeaders() });
+                    allAddresses = await addrRes.json(); renderAddresses();
+                    const statsRes = await fetch(`${API_BASE}/customer/dashboard`, { credentials: 'include', headers: getAuthHeaders() });
+                    renderStats(await statsRes.json());
+                } else { showToast(I18N.t('toast_error'), 'error'); }
+            } catch (e) { showToast(I18N.t('toast_error'), 'error'); }
+            btn.disabled = false; btn.textContent = I18N.t('save_address');
+        }
+
+        function editAddress(id) { openAddressModal(id); }
+
+        async function deleteAddress(id) {
+            if (!confirm('Delete this address?')) return;
+            if (!serverOnline) { showToast('Server offline', 'error'); return; }
+            // Optimistic update: remove from UI immediately
+            const previousAddresses = [...allAddresses];
+            allAddresses = allAddresses.filter(a => a.id !== id);
+            renderAddresses();
+            showToast(I18N.t('toast_address_deleted'), 'success');
+            // Update stats optimistically
+            const statsEl = document.getElementById('statsGrid');
+            if (statsEl) {
+                const currentCount = previousAddresses.length - 1;
+                const statCards = statsEl.querySelectorAll('.stat-value');
+                if (statCards[2]) statCards[2].textContent = currentCount;
+            }
+            try {
+                const res = await fetch(`${API_BASE}/customer/addresses/${id}`, { method: 'DELETE', credentials: 'include', headers: getAuthHeaders() });
+                if (!res.ok) throw new Error('Delete failed');
+                const statsRes = await fetch(`${API_BASE}/customer/dashboard`, { credentials: 'include', headers: getAuthHeaders() });
+                renderStats(await statsRes.json());
+            } catch (e) {
+                showToast(I18N.t('toast_error'), 'error');
+                allAddresses = previousAddresses; // Rollback
+                renderAddresses();
+            }
+        }
+
+        function showOrderDetail(orderId) {
+            const order = allOrders.find(o => o.id === orderId);
+            if (!order) return;
+            document.getElementById('orderDetailContent').innerHTML = `
+                <div style="margin-bottom:1.5rem;"><p style="color:var(--gray);font-size:0.875rem;">${SafeDOM.escapeHtml(I18N.t('dash_order_number'))}</p><p style="font-size:1.25rem;font-weight:700;color:var(--primary);">${SafeDOM.escapeHtml(order.orderNumber || '')}</p></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
+                    <div><p style="color:var(--gray);font-size:0.875rem;">${SafeDOM.escapeHtml(I18N.t('dash_order_date'))}</p><p style="font-weight:600;">${SafeDOM.escapeHtml(order.createdAt ? new Date(order.createdAt).toLocaleDateString(I18N.currentLang) : '—')}</p></div>
+                    <div><p style="color:var(--gray);font-size:0.875rem;">${SafeDOM.escapeHtml(I18N.t('dash_order_status'))}</p><span class="status-badge status-${SafeDOM.escapeAttribute(order.status || '')}">${SafeDOM.escapeHtml(I18N.t('status_' + order.status))}</span></div>
+                    <div><p style="color:var(--gray);font-size:0.875rem;">Payment</p><p style="font-weight:600;">${SafeDOM.escapeHtml(order.paymentMethod === 'card' ? 'Credit Card' : order.paymentMethod || '')}</p></div>
+                    <div><p style="color:var(--gray);font-size:0.875rem;">${SafeDOM.escapeHtml(I18N.t('dash_order_amount'))}</p><p style="font-weight:700;font-size:1.125rem;">€${Number(order.totalAmount || 0).toFixed(2)}</p></div>
+                </div>
+                <div style="margin-bottom:1.5rem;"><p style="color:var(--gray);font-size:0.875rem;margin-bottom:0.5rem;">Delivery Address</p><div style="background:var(--light);padding:1rem;border-radius:0.5rem;"><p style="font-weight:600;">${SafeDOM.escapeHtml(order.shippingAddress?.label || 'Delivery')}</p><p>${SafeDOM.escapeHtml(order.shippingAddress?.street || '')}</p><p>${SafeDOM.escapeHtml(`${order.shippingAddress?.zipCode || ''} ${order.shippingAddress?.city || ''}`.trim())}</p><p>${SafeDOM.escapeHtml(order.shippingAddress?.country || '')}</p></div></div>
+                <div><p style="color:var(--gray);font-size:0.875rem;margin-bottom:0.5rem;">Ordered Items</p>${order.items ? order.items.map(item => `<div style="display:flex;justify-content:space-between;padding:0.75rem 0;border-bottom:1px solid var(--light);"><div><p style="font-weight:600;">${SafeDOM.escapeHtml(item.productName || '')}</p><p style="color:var(--gray);font-size:0.875rem;">${SafeDOM.escapeHtml(`${item.quantity || 0}x @ €${Number(item.unitPrice || 0).toFixed(2)}`)}</p></div><p style="font-weight:700;">€${Number(item.totalPrice || 0).toFixed(2)}</p></div>`).join('') : '<p style="color:var(--gray);">No items available</p>'}</div>`;
+            document.getElementById('orderModal').classList.add('active');
+        }
+        function closeOrderModal() { document.getElementById('orderModal').classList.remove('active'); }
+
+        async function cancelOrder(orderId) {
+            if (!confirm('Cancel this order?')) return;
+            if (!serverOnline) { showToast('Server offline', 'error'); return; }
+            // Optimistic update: change status immediately
+            const previousStatus = {};
+            const order = allOrders.find(o => o.id === orderId);
+            if (order) {
+                previousStatus[orderId] = order.status;
+                order.status = 'cancelled';
+                renderAllOrders(); renderRecentOrders();
+                showToast(I18N.t('toast_order_cancelled'), 'success');
+            }
+            try {
+                const res = await fetch(`${API_BASE}/orders/${orderId}/cancel`, { method: 'PATCH', credentials: 'include', headers: getAuthHeaders() });
+                if (!res.ok) throw new Error('Cancel failed');
+            } catch (e) {
+                showToast(I18N.t('toast_error'), 'error');
+                if (order && previousStatus[orderId]) {
+                    order.status = previousStatus[orderId]; // Rollback
+                    renderAllOrders(); renderRecentOrders();
+                }
+            }
+        }
+
+        function logout() {
+            fetch(`${API_BASE}/session/logout`, { method: 'POST', credentials: 'include', headers: getAuthHeaders() });
+            localStorage.removeItem('token'); localStorage.removeItem('user');
+            window.location.href = '/';
+        }
+
+        function showToast(message, type) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message; toast.className = 'toast ' + type + ' show';
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        if (window.location.hash) { const section = window.location.hash.substring(1); setTimeout(() => showSection(section), 100); }
+    </script>
+</body>
+</html>
