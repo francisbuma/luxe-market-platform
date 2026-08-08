@@ -183,10 +183,17 @@ app.get('/api/customer/orders', verifyToken, (req, res) => {
         const fullOrders = orders.map(order => {
             const itemsStmt = db.prepare("SELECT * FROM order_items WHERE order_id = ?");
             const items = itemsStmt.all(order.id);
+            let shippingAddress = {};
+
+            try {
+                shippingAddress = order.shipping_address ? JSON.parse(order.shipping_address) : {};
+            } catch (parseError) {
+                console.warn('Invalid shipping address payload for order', order.id, parseError.message);
+            }
 
             return {
                 ...order,
-                shippingAddress: JSON.parse(order.shipping_address),
+                shippingAddress,
                 items: items.map(i => ({
                     productId: i.product_id,
                     productName: i.product_name,

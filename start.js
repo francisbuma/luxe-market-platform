@@ -77,11 +77,11 @@ async function startServices() {
     console.log('✅ Database initialized\n');
 
     const services = [
-        { name: 'Auth Service', path: './backend/services/auth-service/server.js', port: 3101, envVar: 'AUTH_PORT', color: '\x1b[36m' },
-        { name: 'Product Service', path: './backend/services/product-service/server.js', port: 3102, envVar: 'PRODUCT_PORT', color: '\x1b[32m' },
-        { name: 'Cart Service', path: './backend/services/cart-service/server.js', port: 3103, envVar: 'CART_PORT', color: '\x1b[33m' },
-        { name: 'Order Service', path: './backend/services/order-service/server.js', port: 3104, envVar: 'ORDER_PORT', color: '\x1b[35m' },
-        { name: 'Customer Service', path: './backend/services/customer-service/server.js', port: 3105, envVar: 'CUSTOMER_PORT', color: '\x1b[34m' },
+        { name: 'Auth Service', path: './backend/services/auth-service/server.js', port: 3001, envVar: 'AUTH_PORT', color: '\x1b[36m' },
+        { name: 'Product Service', path: './backend/services/product-service/server.js', port: 3002, envVar: 'PRODUCT_PORT', color: '\x1b[32m' },
+        { name: 'Cart Service', path: './backend/services/cart-service/server.js', port: 3003, envVar: 'CART_PORT', color: '\x1b[33m' },
+        { name: 'Order Service', path: './backend/services/order-service/server.js', port: 3004, envVar: 'ORDER_PORT', color: '\x1b[35m' },
+        { name: 'Customer Service', path: './backend/services/customer-service/server.js', port: 3005, envVar: 'CUSTOMER_PORT', color: '\x1b[34m' },
         { name: 'API Gateway', path: './backend/gateway/server.js', port: 8080, envVar: 'GATEWAY_PORT', color: '\x1b[31m' }
     ];
 

@@ -455,7 +455,8 @@
             I18N.setLang(lang);
             initLangBar();
             applyTranslations();
-            showToast(`Language: ${I18N.languages[lang].name}`, 'success');
+            const selectedLang = I18N.getLanguages().find(item => item.code === lang);
+            showToast(`Language: ${selectedLang ? selectedLang.name : lang}`, 'success');
         }
 
         function applyTranslations() {
@@ -479,6 +480,26 @@
 
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('active'); }
 
+        async function fetchDashboardJson(url, options = {}) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000);
+            try {
+                const res = await fetch(url, { ...options, signal: controller.signal });
+                if (res.status === 401) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    throw Object.assign(new Error('AuthError'), { name: 'AuthError' });
+                }
+                const payload = await res.json().catch(() => null);
+                if (!res.ok) {
+                    throw new Error(payload?.error || 'Request failed');
+                }
+                return payload;
+            } finally {
+                clearTimeout(timeout);
+            }
+        }
+
         async function loadDashboard() {
             // Show skeletons while loading
             document.getElementById('statsGrid').innerHTML = `
@@ -491,58 +512,73 @@
             document.getElementById('ordersList').innerHTML = `<div class="loading"><div class="spinner"></div><p data-i18n="loading">Loading...</p></div>`;
             document.getElementById('addressesList').innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
             try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 10000);
+                const [profileResult, statsResult, ordersResult, addressesResult] = await Promise.allSettled([
+                    fetchDashboardJson(`${API_BASE}/customer/profile`, { credentials: 'include', headers: getAuthHeaders() }),
+                    fetchDashboardJson(`${API_BASE}/customer/dashboard`, { credentials: 'include', headers: getAuthHeaders() }),
+                    fetchDashboardJson(`${API_BASE}/customer/orders`, { credentials: 'include', headers: getAuthHeaders() }),
+                    fetchDashboardJson(`${API_BASE}/customer/addresses`, { credentials: 'include', headers: getAuthHeaders() })
+                ]);
 
-                const profileRes = await fetch(`${API_BASE}/customer/profile`, { credentials: 'include', headers: getAuthHeaders(), signal: controller.signal });
-                if (!profileRes.ok) {
-                    if (profileRes.status === 401) { localStorage.removeItem('token'); window.location.href = '/pages/login.html'; return; }
-                    throw new Error('Profile load failed');
-                }
-                currentUser = await profileRes.json();
-                const firstName = currentUser.firstName || 'User';
-                const lastName = currentUser.lastName || '';
-                document.getElementById('headerName').textContent = `${firstName} ${lastName}`.trim();
-                const headerAvatar = document.getElementById('headerAvatar');
-                if (currentUser.avatar) {
-                    headerAvatar.style.backgroundImage = `url(${currentUser.avatar})`;
-                    headerAvatar.textContent = '';
+                if (profileResult.status === 'fulfilled') {
+                    currentUser = profileResult.value;
+                    const firstName = currentUser.firstName || 'User';
+                    const lastName = currentUser.lastName || '';
+                    document.getElementById('headerName').textContent = `${firstName} ${lastName}`.trim();
+                    const headerAvatar = document.getElementById('headerAvatar');
+                    if (currentUser.avatar) {
+                        headerAvatar.style.backgroundImage = `url(${currentUser.avatar})`;
+                        headerAvatar.textContent = '';
+                    } else {
+                        headerAvatar.style.backgroundImage = '';
+                        headerAvatar.textContent = (firstName[0] || 'U').toUpperCase();
+                    }
+
+                    renderProfileOverview();
+                    document.getElementById('editFirstName').value = currentUser.firstName || '';
+                    document.getElementById('editLastName').value = currentUser.lastName || '';
+                    document.getElementById('editEmail').value = currentUser.email || '';
+                    document.getElementById('editPhone').value = currentUser.phone || '';
+
+                    const editAvatarPreview = document.getElementById('editAvatarPreview');
+                    if (currentUser.avatar) {
+                        editAvatarPreview.style.backgroundImage = `url(${currentUser.avatar})`;
+                        editAvatarPreview.textContent = '';
+                    } else {
+                        editAvatarPreview.style.backgroundImage = '';
+                        editAvatarPreview.textContent = '👤';
+                    }
                 } else {
-                    headerAvatar.style.backgroundImage = '';
-                    headerAvatar.textContent = (firstName[0] || 'U').toUpperCase();
+                    if (profileResult.reason?.name === 'AuthError') {
+                        redirectToLogin('Your session has expired or is invalid. Please log in again.');
+                        return;
+                    }
+                    throw profileResult.reason;
                 }
 
-                const statsRes = await fetch(`${API_BASE}/customer/dashboard`, { credentials: 'include', headers: getAuthHeaders(), signal: controller.signal });
-                renderStats(await statsRes.json());
-                renderProfileOverview();
+                if (statsResult.status === 'fulfilled') {
+                    renderStats(statsResult.value);
+                } else {
+                    renderStats({ totalOrders: 0, totalSpent: 0, addressCount: 0, cartItems: 0 });
+                }
 
-                const ordersRes = await fetch(`${API_BASE}/customer/orders`, { credentials: 'include', headers: getAuthHeaders(), signal: controller.signal });
-                allOrders = await ordersRes.json();
+                if (ordersResult.status === 'fulfilled') {
+                    allOrders = Array.isArray(ordersResult.value) ? ordersResult.value : [];
+                } else {
+                    allOrders = [];
+                }
                 renderRecentOrders();
                 renderAllOrders();
 
-                const addrRes = await fetch(`${API_BASE}/customer/addresses`, { credentials: 'include', headers: getAuthHeaders(), signal: controller.signal });
-                allAddresses = await addrRes.json();
-                renderAddresses();
-
-                document.getElementById('editFirstName').value = currentUser.firstName || '';
-                document.getElementById('editLastName').value = currentUser.lastName || '';
-                document.getElementById('editEmail').value = currentUser.email || '';
-                document.getElementById('editPhone').value = currentUser.phone || '';
-
-                const editAvatarPreview = document.getElementById('editAvatarPreview');
-                if (currentUser.avatar) {
-                    editAvatarPreview.style.backgroundImage = `url(${currentUser.avatar})`;
-                    editAvatarPreview.textContent = '';
+                if (addressesResult.status === 'fulfilled') {
+                    allAddresses = Array.isArray(addressesResult.value) ? addressesResult.value : [];
                 } else {
-                    editAvatarPreview.style.backgroundImage = '';
-                    editAvatarPreview.textContent = '👤';
+                    allAddresses = [];
                 }
-
-                clearTimeout(timeout);
+                renderAddresses();
             } catch (e) {
                 console.error('Dashboard load error:', e);
-                if (e.name === 'AbortError') showToast('Request timed out', 'error');
+                if (e?.name === 'AuthError') return;
+                if (e?.name === 'AbortError') showToast('Request timed out', 'error');
                 else showToast('Failed to load dashboard data', 'error');
             }
         }

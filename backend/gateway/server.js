@@ -242,8 +242,8 @@ app.post('/api/session/logout', (req, res) => {
     });
 });
 
-function handleProxyAuth(proxyReq, req) {
-    if (!req.headers.authorization && (req.session?.token || req.session?.user?.id)) {
+function handleProxyAuth(headers, req) {
+    if (!headers.authorization && (req.session?.token || req.session?.user?.id)) {
         let token = req.session.token;
         if (!token && req.session.user?.id) {
             token = generateToken(req.session.user.id);
@@ -256,12 +256,12 @@ function handleProxyAuth(proxyReq, req) {
             } catch (e) {}
         }
         if (token) {
-            proxyReq.setHeader('Authorization', `Bearer ${token}`);
+            headers.authorization = `Bearer ${token}`;
         }
     }
 }
 
-async function proxyRequest(req, res, targetBase) {
+async function proxyRequest(req, res, targetBase, options = {}) {
     try {
         const targetUrl = new URL(req.originalUrl, targetBase);
         const headers = {};
@@ -270,20 +270,24 @@ async function proxyRequest(req, res, targetBase) {
             headers[key] = Array.isArray(value) ? value[0] : value;
         });
 
-        const options = {
+        if (options.attachAuth !== false) {
+            handleProxyAuth(headers, req);
+        }
+
+        const fetchOptions = {
             method: req.method,
             headers,
             redirect: 'manual'
         };
 
         if (req.method !== 'GET' && req.method !== 'HEAD' && req.body !== undefined) {
-            options.body = JSON.stringify(req.body);
+            fetchOptions.body = JSON.stringify(req.body);
             if (!headers['content-type']) {
                 headers['content-type'] = 'application/json';
             }
         }
 
-        const response = await fetch(targetUrl, options);
+        const response = await fetch(targetUrl, fetchOptions);
         const payload = await response.text();
 
         res.status(response.status);
@@ -294,44 +298,31 @@ async function proxyRequest(req, res, targetBase) {
         });
         res.send(payload);
     } catch (error) {
-        console.error('[Gateway] Product proxy error:', error.message);
-        res.status(502).json({ error: 'Products service unavailable', message: error.message });
+        console.error('[Gateway] Proxy error:', error.message);
+        res.status(502).json({ error: 'Service unavailable', message: error.message });
     }
 }
 
 // Proxy routes (JWT-based microservices remain available)
-app.use('/api/auth', createProxyMiddleware({
-    target: SERVICES.auth,
-    changeOrigin: true
-}));
-
-app.use('/api/products', async (req, res, next) => {
-    await proxyRequest(req, res, SERVICES.products);
+app.use('/api/auth', async (req, res) => {
+    await proxyRequest(req, res, SERVICES.auth, { attachAuth: false });
 });
 
-app.use('/api/cart', createProxyMiddleware({
-    target: SERVICES.cart,
-    changeOrigin: true,
-    onProxyReq: handleProxyAuth
-}));
+app.use('/api/products', async (req, res) => {
+    await proxyRequest(req, res, SERVICES.products, { attachAuth: false });
+});
 
-app.use('/api/orders', createProxyMiddleware({
-    target: SERVICES.orders,
-    changeOrigin: true,
-    onProxyReq: handleProxyAuth
-}));
+app.use('/api/cart', async (req, res) => {
+    await proxyRequest(req, res, SERVICES.cart);
+});
 
-app.use('/api/customer', createProxyMiddleware({
-    target: SERVICES.customer,
-    changeOrigin: true,
-    timeout: 30000,
-    proxyTimeout: 30000,
-    onProxyReq: handleProxyAuth,
-    onError: (err, req, res) => {
-        console.error(`[Gateway] Customer proxy error: ${err.message}`);
-        res.status(504).json({ error: 'Gateway timeout', message: 'Customer service unavailable' });
-    }
-}));
+app.use('/api/orders', async (req, res) => {
+    await proxyRequest(req, res, SERVICES.orders);
+});
+
+app.use('/api/customer', async (req, res) => {
+    await proxyRequest(req, res, SERVICES.customer);
+});
 
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, '../../frontend')));
